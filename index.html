@@ -6,69 +6,73 @@
   <title>PWA Store</title>
   <link rel="manifest" href="manifest.json">
   <style>
-    body { font-family: sans-serif; background: #121212; color: white; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-    .app-card { background: #1e1e1e; width: 100%; max-width: 350px; padding: 20px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-    .btn { background: #007bff; border: none; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; min-width: 110px; transition: 0.3s; }
-    .btn:disabled { background: #444; color: #888; cursor: not-allowed; }
-    .btn.installed { background: #28a745; }
-    h1 { color: #007bff; }
+    :root { --accent: #0084ff; --bg: #000; --card: #111; }
+    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+    h1 { margin: 30px 0; font-size: 24px; letter-spacing: 1px; }
+    #store { width: 100%; max-width: 400px; }
+    .app-card { 
+      background: var(--card); border: 1px solid #222; padding: 20px; 
+      border-radius: 20px; display: flex; justify-content: space-between; 
+      align-items: center; margin-bottom: 15px; position: relative; overflow: hidden;
+    }
+    .btn { 
+      background: var(--accent); border: none; color: #fff; padding: 10px 20px; 
+      border-radius: 12px; cursor: pointer; font-weight: 600; min-width: 110px; z-index: 2;
+    }
+    .btn:disabled { background: #333; color: #777; }
+    .progress { 
+      position: absolute; left: 0; bottom: 0; height: 100%; width: 0%; 
+      background: rgba(0, 132, 255, 0.15); transition: width 0.2s; z-index: 1;
+    }
+    .app-name { font-weight: bold; font-size: 18px; z-index: 2; }
   </style>
 </head>
 <body>
 
-  <h1>PWA Apps</h1>
-  <div id="app-list"></div>
+  <h1>PWA STORE</h1>
+  <div id="store"></div>
 
   <script>
-    let deferredPrompt;
-
-    // Регистрация Service Worker
+    // Регистрация SW для работы стора
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
 
-    // Ловим событие установки от браузера
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      renderApps(); 
-    });
-
-    async function installProcess(btn) {
-      if (!deferredPrompt) return;
-
-      // Показываем окно браузера
-      deferredPrompt.prompt();
-      
-      const { outcome } = await deferredPrompt.userChoice;
-      
-      if (outcome === 'accepted') {
-        btn.disabled = true;
-        btn.innerText = "Загрузка...";
-        
-        // Ждем, когда система реально установит приложение
-        window.addEventListener('appinstalled', () => {
-          btn.innerText = "Установлено";
-          btn.classList.add('installed');
-          deferredPrompt = null;
-        });
-      }
-    }
-
-    async function renderApps() {
+    async function loadApps() {
       const res = await fetch('LinksOnApps.json');
       const apps = await res.json();
-      const container = document.getElementById('app-list');
+      const container = document.getElementById('store');
       
-      container.innerHTML = apps.map(app => `
+      container.innerHTML = apps.map((app, i) => `
         <div class="app-card">
-          <strong>${app.name}</strong>
-          <button class="btn" onclick="installProcess(this)">Установить</button>
+          <div class="progress" id="p${i}"></div>
+          <span class="app-name">${app.name}</span>
+          <button class="btn" onclick="installFlow(this, 'p${i}', '${app.url}')">Установить</button>
         </div>
       `).join('');
     }
 
-    renderApps();
+    function installFlow(btn, progId, url) {
+      btn.disabled = true;
+      btn.innerText = "Загрузка...";
+      const bar = document.getElementById(progId);
+      
+      let w = 0;
+      const timer = setInterval(() => {
+        w += Math.random() * 20;
+        if (w >= 100) {
+          w = 100;
+          clearInterval(timer);
+          // Перенаправляем игру с сигналом установки
+          setTimeout(() => {
+            window.location.href = url + "?install=true";
+          }, 300);
+        }
+        bar.style.width = w + "%";
+      }, 150);
+    }
+
+    loadApps();
   </script>
 </body>
 </html>
