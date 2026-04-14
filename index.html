@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Store</title>
+    <link rel="manifest" href="manifest.json">
+    
+    <style>
+        :root {
+            --primary: #007aff;
+            --bg: #f2f2f7;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            padding-bottom: 50px;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            font-weight: bold;
+            font-size: 1.2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        #store-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+            gap: 15px; 
+            padding: 20px; 
+        }
+
+        .app-card { 
+            background: white; 
+            border-radius: 20px; 
+            padding: 15px; 
+            text-align: center; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+            transition: transform 0.2s;
+        }
+
+        .app-card:active { transform: scale(0.95); }
+
+        .app-card img { width: 80px; height: 80px; border-radius: 18px; margin-bottom: 10px; object-fit: cover; }
+        
+        .install-btn { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 8px 20px; 
+            border-radius: 20px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            width: 100%;
+        }
+
+        /* Overlay установки */
+        #install-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
+        }
+
+        .install-card {
+            background: white; width: 85%; max-width: 320px; padding: 30px;
+            border-radius: 30px; text-align: center;
+        }
+
+        .progress-bar { width: 100%; height: 6px; background: #eee; border-radius: 3px; margin: 25px 0; overflow: hidden; }
+        #progress-fill { width: 0%; height: 100%; background: var(--primary); transition: width 0.3s; }
+
+        .hidden { display: none !important; }
+        
+        #install-frame { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+        #close-install {
+            margin-top: 15px;
+            background: #eee;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            width: 100%;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<header>МАГАЗИН ПРИЛОЖЕНИЙ</header>
+
+<main id="store-grid"></main>
+
+<div id="install-overlay" class="hidden">
+    <div class="install-card">
+        <img id="install-icon" src="" alt="" style="width: 90px; height: 90px; border-radius: 20px;">
+        <h2 id="install-name" style="margin: 15px 0 5px;"></h2>
+        <p id="install-status" style="color: #666; font-size: 0.9rem;">Инициализация...</p>
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+        <button id="close-install" class="hidden">Закрыть</button>
+    </div>
+    <iframe id="install-frame" src=""></iframe>
+</div>
+
+<script>
+    // База данных приложений
+    const apps = [
+        { name: "Telegram", icon: "https://web.telegram.org/img/favicon.ico", url: "https://web.telegram.org/k/" },
+        { name: "Pinterest", icon: "https://s.pinimg.com/webapp/style/images/logo_transp_144x144-763486c4.png", url: "https://www.pinterest.com/" },
+        { name: "Twitter", icon: "https://abs.twimg.com/responsive-web/client-web-legacy/icon-default.3c3b2244.png", url: "https://twitter.com/" }
+    ];
+
+    const grid = document.getElementById('store-grid');
+    const overlay = document.getElementById('install-overlay');
+
+    // Рендер карточек
+    apps.forEach(app => {
+        const card = document.createElement('div');
+        card.className = 'app-card';
+        card.innerHTML = `
+            <img src="${app.icon}">
+            <div style="margin-bottom:10px; font-weight:bold;">${app.name}</div>
+            <button class="install-btn" onclick="startInstall('${app.url}', '${app.name}', '${app.icon}')">Установить</button>
+        `;
+        grid.appendChild(card);
+    });
+
+    function startInstall(url, name, icon) {
+        overlay.classList.remove('hidden');
+        document.getElementById('install-icon').src = icon;
+        document.getElementById('install-name').innerText = name;
+        
+        const progress = document.getElementById('progress-fill');
+        const status = document.getElementById('install-status');
+        const frame = document.getElementById('install-frame');
+        const closeBtn = document.getElementById('close-install');
+        
+        let width = 0;
+        closeBtn.classList.add('hidden');
+        frame.src = url;
+
+        const interval = setInterval(() => {
+            if (width >= 100) {
+                clearInterval(interval);
+                status.innerText = "Готово! Если установка не началась автоматически, используйте меню браузера.";
+                closeBtn.classList.remove('hidden');
+            } else {
+                width += Math.random() * 20;
+                if (width > 100) width = 100;
+                progress.style.width = width + '%';
+                
+                if (width > 30) status.innerText = "Загрузка компонентов...";
+                if (width > 70) status.innerText = "Проверка безопасности...";
+            }
+        }, 500);
+    }
+
+    document.getElementById('close-install').onclick = () => {
+        overlay.classList.add('hidden');
+        document.getElementById('progress-fill').style.width = '0%';
+    };
+
+    // Регистрация Service Worker для самого магазина
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
+        });
+    }
+</script>
+
+</body>
+</html>
