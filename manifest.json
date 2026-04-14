@@ -1,0 +1,22 @@
+{
+  "short_name": "PWA Store",
+  "name": "Market: Магазин PWA приложений",
+  "description": "Устанавливайте лучшие веб-приложения прямо здесь.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2582/2582614.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2582/2582614.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "display": "standalone",
+  "theme_color": "#007aff",
+  "background_color": "#ffffff"
+}
