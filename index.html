@@ -1,127 +1,74 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWA Store</title>
-    <link rel="manifest" href="manifest.json">
-    <style>
-        :root {
-            --primary: #007aff;
-            --bg: #f2f2f7;
-            --card-bg: #ffffff;
-        }
-
-        body {
-            font-family: -apple-system, system-ui, sans-serif;
-            background-color: var(--bg);
-            margin: 0;
-            padding: 0;
-            color: #000;
-        }
-
-        header {
-            background: #fff;
-            padding: 20px;
-            text-align: center;
-            font-weight: 800;
-            font-size: 1.4rem;
-            border-bottom: 1px solid #d1d1d6;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            padding: 20px;
-        }
-
-        .app-card {
-            background: var(--card-bg);
-            border-radius: 22px;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        }
-
-        .app-card img {
-            width: 72px;
-            height: 72px;
-            border-radius: 16px;
-            object-fit: cover;
-            margin-bottom: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-
-        .app-name {
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: 12px;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            width: 100%;
-        }
-
-        .install-btn {
-            background: #e9e9eb;
-            color: var(--primary);
-            border: none;
-            padding: 8px 0;
-            width: 100%;
-            border-radius: 18px;
-            font-weight: 700;
-            font-size: 0.8rem;
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: background 0.2s;
-        }
-
-        .install-btn:active {
-            background: #d1d1d6;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PWA Store</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body { font-family: sans-serif; background: #121212; color: white; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .app-card { background: #1e1e1e; width: 100%; max-width: 350px; padding: 20px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .btn { background: #007bff; border: none; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; min-width: 110px; transition: 0.3s; }
+    .btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+    .btn.installed { background: #28a745; }
+    h1 { color: #007bff; }
+  </style>
 </head>
 <body>
 
-<header>PWA STORE</header>
+  <h1>PWA Apps</h1>
+  <div id="app-list"></div>
 
-<div class="container" id="app-list">
-    </div>
-
-<script>
-    // Список приложений
-    const apps = [
-        { name: "Telegram", icon: "https://web.telegram.org/img/favicon.ico", url: "https://web.telegram.org/k/" },
-        { name: "Pinterest", icon: "https://s.pinimg.com/webapp/style/images/logo_transp_144x144-763486c4.png", url: "https://www.pinterest.com/" },
-        { name: "TikTok", icon: "https://www.tiktok.com/favicon.ico", url: "https://www.tiktok.com/" },
-        { name: "Twitter", icon: "https://abs.twimg.com/responsive-web/client-web-legacy/icon-default.3c3b2244.png", url: "https://twitter.com/" }
-    ];
-
-    const list = document.getElementById('app-list');
-
-    // Рендерим карточки
-    apps.forEach(app => {
-        const card = document.createElement('div');
-        card.className = 'app-card';
-        card.innerHTML = `
-            <img src="${app.icon}" alt="${app.name}">
-            <div class="app-name">${app.name}</div>
-            <button class="install-btn" onclick="window.open('${app.url}', '_blank')">Установить</button>
-        `;
-        list.appendChild(card);
-    });
+  <script>
+    let deferredPrompt;
 
     // Регистрация Service Worker
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
+      navigator.serviceWorker.register('sw.js');
     }
-</script>
+
+    // Ловим событие установки от браузера
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      renderApps(); 
+    });
+
+    async function installProcess(btn) {
+      if (!deferredPrompt) return;
+
+      // Показываем окно браузера
+      deferredPrompt.prompt();
+      
+      const { outcome } = await deferredPrompt.userChoice;
+      
+      if (outcome === 'accepted') {
+        btn.disabled = true;
+        btn.innerText = "Загрузка...";
+        
+        // Ждем, когда система реально установит приложение
+        window.addEventListener('appinstalled', () => {
+          btn.innerText = "Установлено";
+          btn.classList.add('installed');
+          deferredPrompt = null;
+        });
+      }
+    }
+
+    async function renderApps() {
+      const res = await fetch('LinksOnApps.json');
+      const apps = await res.json();
+      const container = document.getElementById('app-list');
+      
+      container.innerHTML = apps.map(app => `
+        <div class="app-card">
+          <strong>${app.name}</strong>
+          <button class="btn" onclick="installProcess(this)">Установить</button>
+        </div>
+      `).join('');
+    }
+
+    renderApps();
+  </script>
 </body>
 </html>
