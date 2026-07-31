@@ -4,72 +4,119 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PWA Store</title>
-  <link rel="manifest" href="manifest.json">
+  
+  <!-- PWA Settings -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <style>
-    :root { --accent: #0084ff; --bg: #000; --card: #111; }
-    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
-    h1 { margin: 30px 0; font-size: 24px; letter-spacing: 1px; }
-    #store { width: 100%; max-width: 400px; }
-    .app-card { 
-      background: var(--card); border: 1px solid #222; padding: 20px; 
-      border-radius: 20px; display: flex; justify-content: space-between; 
-      align-items: center; margin-bottom: 15px; position: relative; overflow: hidden;
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: #1e293b; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+    h1 { font-size: 1.25rem; font-weight: 600; color: #38bdf8; }
+    
+    #install-btn {
+      background: #2563eb; color: white; border: none; padding: 0.5rem 1rem;
+      border-radius: 0.5rem; font-weight: 500; cursor: pointer; display: none;
+      transition: background 0.2s;
     }
-    .btn { 
-      background: var(--accent); border: none; color: #fff; padding: 10px 20px; 
-      border-radius: 12px; cursor: pointer; font-weight: 600; min-width: 110px; z-index: 2;
+    #install-btn:hover { background: #1d4ed8; }
+
+    main { padding: 1.5rem; max-width: 800px; width: 100%; margin: 0 auto; flex: 1; }
+    .section-title { font-size: 1.1rem; margin-bottom: 1rem; color: #94a3b8; }
+    
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    
+    .card {
+      background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem;
+      padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;
     }
-    .btn:disabled { background: #333; color: #777; }
-    .progress { 
-      position: absolute; left: 0; bottom: 0; height: 100%; width: 0%; 
-      background: rgba(0, 132, 255, 0.15); transition: width 0.2s; z-index: 1;
+    .card h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+    .card p { font-size: 0.85rem; color: #94a3b8; margin-bottom: 1rem; word-break: break-word; }
+    
+    .btn-download {
+      background: #0f172a; color: #38bdf8; border: 1px solid #38bdf8;
+      padding: 0.5rem; border-radius: 0.375rem; text-align: center;
+      text-decoration: none; font-size: 0.85rem; font-weight: 500; display: block;
+      transition: all 0.2s;
     }
-    .app-name { font-weight: bold; font-size: 18px; z-index: 2; }
+    .btn-download:hover { background: #38bdf8; color: #0f172a; }
+
+    footer { text-align: center; padding: 1rem; color: #64748b; font-size: 0.8rem; border-top: 1px solid #334155; }
   </style>
 </head>
 <body>
 
-  <h1>PWA STORE</h1>
-  <div id="store"></div>
+  <header>
+    <h1>PWA Store</h1>
+    <button id="install-btn">Установить Store</button>
+  </header>
+
+  <main>
+    <div class="section-title">Каталог приложений</div>
+    <div class="grid" id="app-grid">
+      <p style="color: #64748b;">Загрузка каталога...</p>
+    </div>
+  </main>
+
+  <footer>
+    GitHub Pages PWA Store &copy; 2026
+  </footer>
 
   <script>
-    // Регистрация SW для работы стора
+    // 1. Регистрация Service Worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
     }
 
+    // 2. Логика установки самого PWA Store
+    let deferredPrompt;
+    const installBtn = document.getElementById('install-btn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'block';
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        installBtn.style.display = 'none';
+      }
+      deferredPrompt = null;
+    });
+
+    // 3. Загрузка каталога из apps.json
     async function loadApps() {
-      const res = await fetch('LinksOnApps.json');
-      const apps = await res.json();
-      const container = document.getElementById('store');
-      
-      container.innerHTML = apps.map((app, i) => `
-        <div class="app-card">
-          <div class="progress" id="p${i}"></div>
-          <span class="app-name">${app.name}</span>
-          <button class="btn" onclick="installFlow(this, 'p${i}', '${app.url}')">Установить</button>
-        </div>
-      `).join('');
-    }
+      const appGrid = document.getElementById('app-grid');
+      try {
+        const response = await fetch('./apps.json');
+        const apps = await response.json();
 
-    function installFlow(btn, progId, url) {
-      btn.disabled = true;
-      btn.innerText = "Загрузка...";
-      const bar = document.getElementById(progId);
-      
-      let w = 0;
-      const timer = setInterval(() => {
-        w += Math.random() * 20;
-        if (w >= 100) {
-          w = 100;
-          clearInterval(timer);
-          // Перенаправляем игру с сигналом установки
-          setTimeout(() => {
-            window.location.href = url + "?install=true";
-          }, 300);
+        if (!apps || apps.length === 0) {
+          appGrid.innerHTML = '<p style="color: #64748b; grid-column: 1/-1;">Каталог пуст.</p>';
+          return;
         }
-        bar.style.width = w + "%";
-      }, 150);
+
+        appGrid.innerHTML = apps.map(app => `
+          <div class="card">
+            <div>
+              <h3>${app.name}</h3>
+              <p>${app.description}</p>
+            </div>
+            <a href="${app.url}?store=yes" target="_blank" class="btn-download">Открыть / Установить</a>
+          </div>
+        `).join('');
+      } catch (err) {
+        appGrid.innerHTML = '<p style="color: #fca5a5; grid-column: 1/-1;">Ошибка загрузки каталога apps.json</p>';
+      }
     }
 
     loadApps();
